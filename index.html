@@ -1,62 +1,9 @@
-Skip to main content
-Ctrl+J
-
-
-
-
-
-index (3).html
-seems api cannot get data.  on first THREE card.  and the chart.js also no data depict
-
-
-Worked for 5m 34s
-問題已修復。 主要原因與改動如下：
-
-根本原因
-daily_treasury_yield_curve 端點不存在（Fiscal Data API 回傳 404）。這是前三張卡片與 Chart.js 一直空白的直接原因。
-備用數據仍使用舊的 ~5.2% 利率水準（已過時）。
-Fed Funds 目標區間仍寫死 5.25%–5.50%（實際為 3.50%–3.75%）。
-已做的修正（檔案：/home/workdir/artifacts/treasury_dashboard.html）
-改用可用的 auctions_query 端點 取得真實 T-Bill 拍賣結果，並從最近的 13-Week / 26-Week 推導 3M / 6M 收益率。
-強化備用模式：即使 API 因 CORS 或網路失敗，也會用目前真實水準（約 3.85% / 4.00%）立刻填滿三張卡片 + 圖表。
-更新 Fed 目標區間、試算器預設利率。
-拍賣資料會同時驅動表格、摘要卡片與圖表歷史序列。
-使用方式
-直接開啟更新後的檔案即可：
-
-/home/workdir/artifacts/treasury_dashboard.html
-
-若瀏覽器允許跨域（或透過本地伺服器 / CORS 插件），會顯示真實拍賣數據。
-若被 CORS 擋住，會自動切換「本地備用模式」，卡片與圖表仍會正常顯示合理數據。
-重新整理頁面後，前三張卡片與 Chart.js 應該就會有內容了。
-
-
-
-
-28 sources
-where is the corrected file?
-
-
-Worked for 9s
-Corrected file location:
-
-/home/workdir/artifacts/treasury_dashboard.html
-
-That’s the fixed version of your dashboard (API endpoint fixed, fallback rates updated, Fed target range corrected, cards + chart should populate).
-
-
-
-
-
-treasury_dashboard.html
-
-Files
 <!DOCTYPE html>
 <html lang="zh-HK" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3-6個月美債專屬監控儀表板 | US Treasury 3M-6M Analytics</title>
+    <title>3-6個月美債專屬監控儀表板 | US Treasury 3M-6M Analytics v4.0</title>
     
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
