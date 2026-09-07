@@ -68,10 +68,29 @@
             backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.08);
         }
+        /* Loading shimmer */
+        .shimmer {
+            background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
     </style>
 </head>
 <body class="min-h-screen bg-[#070A10] text-slate-200 antialiased selection:bg-cyan-500 selection:text-black">
 
+    <!-- API Warning Banner (hidden by default) -->
+    <div id="cors-banner" class="hidden bg-amber-950/80 border-b border-amber-800/50 px-4 py-2 text-center text-xs text-amber-200">
+        <span class="inline-flex items-center gap-1.5">
+            <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
+            無法連線至美國財政部 API（可能是 CORS 限制），已載入本地備用數據供演示。建議透過伺服器環境或插件繞過 CORS 以取得即時數據。
+        </span>
+    </div>
+
+    <!-- Top Navigation Header -->
     <header class="border-b border-slate-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-40">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <div class="flex items-center space-x-3">
@@ -91,10 +110,10 @@
             <div class="flex items-center space-x-4">
                 <div class="hidden md:flex items-center space-x-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-xs">
                     <span class="relative flex h-2 w-2">
-                      <span id="pulse-dot-ping" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span id="pulse-dot" class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                     </span>
-                    <span class="text-slate-300">數據源：<span id="data-source-label" class="text-cyan-400 font-medium">US Treasury Fiscal Data</span></span>
+                    <span class="text-slate-300">數據源：<span class="text-cyan-400 font-medium">US Treasury Fiscal Data</span></span>
                     <span class="text-slate-500">|</span>
                     <span class="font-mono text-slate-400" id="live-timestamp">載入中...</span>
                 </div>
@@ -109,16 +128,8 @@
         </div>
     </header>
 
+    <!-- Main Container -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-
-        <!-- Offline / Fallback Notice Banner (Hidden by default) -->
-        <div id="fallback-banner" class="hidden bg-amber-950/80 border border-amber-800/80 text-amber-200 px-4 py-2.5 rounded-xl text-xs flex items-center justify-between">
-            <div class="flex items-center gap-2">
-                <i data-lucide="wifi-off" class="w-4 h-4 text-amber-400"></i>
-                <span>目前使用離線備用市場行情資料 (Fiscal API 未能連接或受到跨域限制)。</span>
-            </div>
-            <button onclick="fetchLiveTreasuryData()" class="underline font-semibold hover:text-white">重試連線</button>
-        </div>
 
         <!-- Key Metrics Row -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -132,12 +143,12 @@
                     </span>
                 </div>
                 <div class="flex items-baseline space-x-2">
-                    <span class="text-3xl font-bold font-mono text-white" id="yield-3m">5.235%</span>
-                    <span class="text-xs font-mono font-medium text-emerald-400" id="change-3m">+0.010</span>
+                    <span class="text-3xl font-bold font-mono text-white" id="yield-3m">--.---%</span>
+                    <span class="text-xs font-mono font-medium text-slate-500" id="change-3m">--.---</span>
                 </div>
                 <div class="mt-3 pt-2 border-t border-slate-800/60 flex justify-between text-xs text-slate-400 font-mono">
                     <span>90 天期 (T-Bill)</span>
-                    <span class="text-slate-300" id="discount-3m">貼現率: 5.11%</span>
+                    <span class="text-slate-300" id="discount-3m">貼現率: --.--%</span>
                 </div>
             </div>
 
@@ -150,12 +161,12 @@
                     </span>
                 </div>
                 <div class="flex items-baseline space-x-2">
-                    <span class="text-3xl font-bold font-mono text-white" id="yield-6m">5.148%</span>
-                    <span class="text-xs font-mono font-medium text-red-400" id="change-6m">-0.002</span>
+                    <span class="text-3xl font-bold font-mono text-white" id="yield-6m">--.---%</span>
+                    <span class="text-xs font-mono font-medium text-slate-500" id="change-6m">--.---</span>
                 </div>
                 <div class="mt-3 pt-2 border-t border-slate-800/60 flex justify-between text-xs text-slate-400 font-mono">
                     <span>180 天期 (T-Bill)</span>
-                    <span class="text-slate-300" id="discount-6m">貼現率: 4.98%</span>
+                    <span class="text-slate-300" id="discount-6m">貼現率: --.--%</span>
                 </div>
             </div>
 
@@ -168,12 +179,12 @@
                     </span>
                 </div>
                 <div class="flex items-baseline space-x-2">
-                    <span class="text-3xl font-bold font-mono text-amber-400" id="yield-spread">-9 bps</span>
-                    <span class="text-[10px] px-1.5 py-0.5 bg-red-950 text-red-300 rounded font-medium border border-red-800/50" id="spread-status">曲線倒掛</span>
+                    <span class="text-3xl font-bold font-mono text-amber-400" id="yield-spread">-- bps</span>
+                    <span class="text-[10px] px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded font-medium border border-slate-700" id="spread-status">載入中</span>
                 </div>
                 <div class="mt-3 pt-2 border-t border-slate-800/60 flex justify-between text-xs text-slate-400 font-mono">
                     <span>最新數據日期</span>
-                    <span class="text-slate-300" id="record-date-str">--</span>
+                    <span class="text-slate-300" id="record-date-str">----/--/--</span>
                 </div>
             </div>
 
@@ -191,14 +202,15 @@
                 </div>
                 <div class="mt-3 pt-2 border-t border-slate-800/60 flex justify-between text-xs text-slate-400">
                     <span>API 狀態</span>
-                    <span class="text-emerald-400 font-mono font-medium flex items-center gap-1" id="api-status-badge">
-                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Yield & Auction Live
+                    <span class="text-slate-500 font-mono font-medium flex items-center gap-1" id="api-status-badge">
+                        <span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span> 等待同步
                     </span>
                 </div>
             </div>
 
         </div>
 
+        <!-- Charts & Calculator Section -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
             <!-- Left: Yield Trend Chart -->
@@ -259,20 +271,21 @@
                 <div class="mt-4 p-3.5 bg-slate-950 rounded-xl border border-slate-800/80 space-y-2 text-xs">
                     <div class="flex justify-between text-slate-400">
                         <span>預估實際扣款金額:</span>
-                        <span id="res-cost" class="font-mono text-white font-bold">$97,438.00</span>
+                        <span id="res-cost" class="font-mono text-white font-bold">$--,---.--</span>
                     </div>
                     <div class="flex justify-between text-slate-400">
                         <span>到期純獲利利息:</span>
-                        <span id="res-profit" class="font-mono text-emerald-400 font-bold">+$2,562.00</span>
+                        <span id="res-profit" class="font-mono text-emerald-400 font-bold">+$--,---.--</span>
                     </div>
                     <div class="flex justify-between text-slate-400 border-t border-slate-800 pt-2">
                         <span>折算年化貼現率 (Discount Rate):</span>
-                        <span id="res-discount" class="font-mono text-cyan-400 font-semibold">4.98%</span>
+                        <span id="res-discount" class="font-mono text-cyan-400 font-semibold">--.--%</span>
                     </div>
                 </div>
             </div>
         </div>
 
+        <!-- T-Bills Table / Screener -->
         <div class="bg-slate-900/90 border border-slate-800 p-5 rounded-xl">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
                 <div>
@@ -311,6 +324,7 @@
 
     </main>
 
+    <!-- Modal Drawer: Bond Detail -->
     <div id="bond-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl transform transition-all">
             <div class="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-950">
@@ -321,7 +335,7 @@
                     </div>
                     <p id="modal-title" class="text-xs text-slate-400 mt-0.5">United States Treasury Bill (Discount Note)</p>
                 </div>
-                <button onclick="closeModal()" class="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition">
+                <button onclick="closeModal()" class="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
@@ -378,16 +392,31 @@
 
         let apiYieldData = [];
         let treasuryBonds = [];
-        let yieldChart;
+        let yieldChart = null;
         let selectedCusip = "";
         let currentPeriod = '30d';
+        let isUsingFallback = false;
 
-        // Helper: Date string generator (Timezone Safe)
-        function formatDateLocal(date) {
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
+        // Utility: Format date as YYYY-MM-DD without timezone issues
+        function formatDate(date) {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        // Utility: Fetch with timeout
+        async function fetchWithTimeout(url, timeout = 8000) {
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), timeout);
+            try {
+                const response = await fetch(url, { signal: controller.signal });
+                clearTimeout(id);
+                return response;
+            } catch (error) {
+                clearTimeout(id);
+                throw error;
+            }
         }
 
         // Toast Notification System
@@ -412,11 +441,11 @@
             toast.innerHTML = `<i data-lucide="${iconName}" class="w-4 h-4"></i> <span>${message}</span>`;
             
             container.appendChild(toast);
-            if (window.lucide) lucide.createIcons();
+            if (window.lucide && window.lucide.createIcons) lucide.createIcons();
 
-            setTimeout(() => {
+            requestAnimationFrame(() => {
                 toast.classList.remove('translate-y-2', 'opacity-0');
-            }, 10);
+            });
 
             setTimeout(() => {
                 toast.classList.add('opacity-0', 'translate-y-2');
@@ -424,30 +453,22 @@
             }, 3500);
         }
 
-        // Fetch with Timeout Guard
-        async function fetchWithTimeout(resource, options = {}) {
-            const { timeout = 6000 } = options;
-            const controller = new AbortController();
-            const id = setTimeout(() => controller.abort(), timeout);
-            try {
-                const response = await fetch(resource, { ...options, signal: controller.signal });
-                clearTimeout(id);
-                return response;
-            } catch (error) {
-                clearTimeout(id);
-                throw error;
-            }
-        }
-
         async function fetchLiveTreasuryData() {
             const refreshIcon = document.getElementById('refresh-icon');
             if (refreshIcon) refreshIcon.classList.add('animate-spin');
 
             const statusBadge = document.getElementById('api-status-badge');
-            const banner = document.getElementById('fallback-banner');
+            if (statusBadge) {
+                statusBadge.className = "text-amber-400 font-mono font-medium flex items-center gap-1";
+                statusBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span> 同步中...`;
+            }
+
+            // Hide CORS banner on fresh attempt
+            const corsBanner = document.getElementById('cors-banner');
+            if (corsBanner) corsBanner.classList.add('hidden');
 
             try {
-                // 並行抓取每日收益率曲線與真實國債拍賣數據
+                // 並行抓取每日收益率曲線與真實國債拍賣數據 (auctions_query)
                 const [yieldRes, auctionRes] = await Promise.allSettled([
                     fetchWithTimeout(FISCAL_YIELD_ENDPOINT).then(r => r.json()),
                     fetchWithTimeout(FISCAL_AUCTION_ENDPOINT).then(r => r.json())
@@ -468,19 +489,25 @@
                 }
 
                 if (yieldSuccess || auctionSuccess) {
+                    isUsingFallback = false;
                     if (statusBadge) {
                         statusBadge.className = "text-emerald-400 font-mono font-medium flex items-center gap-1";
                         statusBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> FiscalData Real-time`;
                     }
-                    if (banner) banner.classList.add('hidden');
-                    document.getElementById('data-source-label').innerText = "US Treasury Fiscal Data";
-                    showToast(`已成功同步美財政部 Yield Curve 與 ${auctionSuccess ? '真實拍賣' : '市場估算'} 數據！`);
+                    showToast(`已成功同步美財政部 Yield Curve 與 ${auctionSuccess ? '真實拍賣 (auctions_query)' : ''} 數據！`);
                 } else {
-                    useFallbackTreasuryData();
+                    throw new Error('Both APIs returned no usable data');
                 }
             } catch (err) {
-                console.warn("API 讀取異常或連線逾時，啟動備用行情模式:", err);
+                console.warn("API 讀取異常，啟動備用行情模式:", err);
+                isUsingFallback = true;
+                if (corsBanner) corsBanner.classList.remove('hidden');
+                if (statusBadge) {
+                    statusBadge.className = "text-amber-400 font-mono font-medium flex items-center gap-1";
+                    statusBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span> 本地備用模式`;
+                }
                 useFallbackTreasuryData();
+                showToast('API 連線失敗，已載入本地備用數據', 'warning');
             } finally {
                 if (refreshIcon) refreshIcon.classList.remove('animate-spin');
             }
@@ -489,30 +516,46 @@
         function processAuctionData(auctionList) {
             const now = new Date();
 
+            // 過濾並轉換真實拍賣數據
             treasuryBonds = auctionList.map(item => {
-                const matDate = new Date(item.maturity_date);
-                const diffTime = matDate - now;
-                const dtm = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-
-                const highYield = parseFloat(item.high_investment_rate || item.high_yield || item.investment_rate || 5.20);
-                const discountRate = parseFloat(item.high_discount_rate || (highYield * 0.968));
+                const matDate = item.maturity_date ? new Date(item.maturity_date + 'T00:00:00') : null;
+                const issueDate = item.issue_date ? new Date(item.issue_date + 'T00:00:00') : null;
                 
-                const askPrice = item.price_per100 && !isNaN(parseFloat(item.price_per100)) 
-                    ? parseFloat(item.price_per100) 
-                    : (100 * (1 - (discountRate / 100 * (dtm / 360))));
-                const bidPrice = askPrice - 0.008;
+                // 計算剩餘天數 (DTM)
+                let dtm = 91;
+                if (matDate && !isNaN(matDate.getTime())) {
+                    const diffTime = matDate - now;
+                    dtm = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+                }
 
-                let tenorLabel = item.security_term || "T-Bill";
+                const rawYield = item.high_investment_rate || item.high_yield || item.investment_rate;
+                const highYield = parseFloat(rawYield) || 5.20;
+                
+                const rawDiscount = item.high_discount_rate;
+                const discountRate = (rawDiscount !== undefined && rawDiscount !== null && rawDiscount !== '') 
+                    ? parseFloat(rawDiscount) 
+                    : (highYield * 0.968);
+                
+                // 計算估算價格
+                let askPrice = 99.5;
+                if (item.price_per100 && !isNaN(parseFloat(item.price_per100))) {
+                    askPrice = parseFloat(item.price_per100);
+                } else {
+                    askPrice = 100 * (1 - (discountRate / 100 * (dtm / 360)));
+                }
+                const bidPrice = Math.max(0.01, askPrice - 0.008);
+
+                let tenorLabel = item.security_term || 'T-Bill';
                 if (tenorLabel === '13-Week') tenorLabel = '3M T-Bill';
                 else if (tenorLabel === '17-Week') tenorLabel = '4M T-Bill';
                 else if (tenorLabel === '26-Week') tenorLabel = '6M T-Bill';
 
                 return {
                     cusip: item.cusip || "US912797HA12",
-                    name: `US TREASURY BILL (${item.security_term || 'Discount Note'})`,
+                    name: `US TREASURY BILL (${item.security_term || 'Bill'})`,
                     type: tenorLabel,
-                    issueDate: item.issue_date || formatDateLocal(now),
-                    maturity: item.maturity_date || formatDateLocal(matDate),
+                    issueDate: item.issue_date || formatDate(new Date()),
+                    maturity: item.maturity_date || formatDate(new Date()),
                     dtm: dtm,
                     bid: bidPrice,
                     ask: askPrice,
@@ -521,14 +564,15 @@
                 };
             });
 
+            // 依到期日排序
             treasuryBonds.sort((a, b) => new Date(a.maturity) - new Date(b.maturity));
             renderTable(treasuryBonds);
         }
 
         function processApiYieldData(data) {
             if (!data || data.length === 0) return;
-
-            const latest = data[0]; // Newest date is index 0
+            
+            const latest = data[0];
             const previous = data[1] || latest;
 
             const yield3M = parseFloat(latest.bc_3month) || 5.235;
@@ -541,40 +585,54 @@
             const change3M = yield3M - prev3M;
             const change6M = yield6M - prev6M;
 
-            document.getElementById('yield-3m').innerText = `${yield3M.toFixed(3)}%`;
-            document.getElementById('yield-6m').innerText = `${yield6M.toFixed(3)}%`;
+            const elYield3M = document.getElementById('yield-3m');
+            const elYield6M = document.getElementById('yield-6m');
+            if (elYield3M) elYield3M.innerText = `${yield3M.toFixed(3)}%`;
+            if (elYield6M) elYield6M.innerText = `${yield6M.toFixed(3)}%`;
 
             const change3mEl = document.getElementById('change-3m');
-            change3mEl.innerText = `${change3M >= 0 ? '+' : ''}${change3M.toFixed(3)}`;
-            change3mEl.className = change3M >= 0 ? "text-xs font-mono font-medium text-emerald-400" : "text-xs font-mono font-medium text-red-400";
+            if (change3mEl) {
+                change3mEl.innerText = `${change3M >= 0 ? '+' : ''}${change3M.toFixed(3)}`;
+                change3mEl.className = change3M >= 0 ? "text-xs font-mono font-medium text-emerald-400" : "text-xs font-mono font-medium text-red-400";
+            }
 
             const change6mEl = document.getElementById('change-6m');
-            change6mEl.innerText = `${change6M >= 0 ? '+' : ''}${change6M.toFixed(3)}`;
-            change6mEl.className = change6M >= 0 ? "text-xs font-mono font-medium text-emerald-400" : "text-xs font-mono font-medium text-red-400";
+            if (change6mEl) {
+                change6mEl.innerText = `${change6M >= 0 ? '+' : ''}${change6M.toFixed(3)}`;
+                change6mEl.className = change6M >= 0 ? "text-xs font-mono font-medium text-emerald-400" : "text-xs font-mono font-medium text-red-400";
+            }
 
             const discount3M = yield3M * 0.976;
             const discount6M = yield6M * 0.968;
 
-            document.getElementById('discount-3m').innerText = `貼現率: ${discount3M.toFixed(2)}%`;
-            document.getElementById('discount-6m').innerText = `貼現率: ${discount6M.toFixed(2)}%`;
+            const elDiscount3M = document.getElementById('discount-3m');
+            const elDiscount6M = document.getElementById('discount-6m');
+            if (elDiscount3M) elDiscount3M.innerText = `貼現率: ${discount3M.toFixed(2)}%`;
+            if (elDiscount6M) elDiscount6M.innerText = `貼現率: ${discount6M.toFixed(2)}%`;
 
             const spreadBps = Math.round((yield6M - yield3M) * 100);
-            document.getElementById('yield-spread').innerText = `${spreadBps > 0 ? '+' : ''}${spreadBps} bps`;
+            const elSpread = document.getElementById('yield-spread');
+            if (elSpread) elSpread.innerText = `${spreadBps > 0 ? '+' : ''}${spreadBps} bps`;
             
             const spreadStatusEl = document.getElementById('spread-status');
-            if (spreadBps < 0) {
-                spreadStatusEl.innerText = "曲線倒掛";
-                spreadStatusEl.className = "text-[10px] px-1.5 py-0.5 bg-red-950 text-red-300 rounded font-medium border border-red-800/50";
-            } else {
-                spreadStatusEl.innerText = "正常斜率";
-                spreadStatusEl.className = "text-[10px] px-1.5 py-0.5 bg-emerald-950 text-emerald-300 rounded font-medium border border-emerald-800/50";
+            if (spreadStatusEl) {
+                if (spreadBps < 0) {
+                    spreadStatusEl.innerText = "曲線倒掛";
+                    spreadStatusEl.className = "text-[10px] px-1.5 py-0.5 bg-red-950 text-red-300 rounded font-medium border border-red-800/50";
+                } else {
+                    spreadStatusEl.innerText = "正常斜率";
+                    spreadStatusEl.className = "text-[10px] px-1.5 py-0.5 bg-emerald-950 text-emerald-300 rounded font-medium border border-emerald-800/50";
+                }
             }
 
-            document.getElementById('record-date-str').innerText = latest.record_date || formatDateLocal(new Date());
-            document.getElementById('live-timestamp').innerText = `${latest.record_date || '即時'} 結算價`;
+            const recordDateEl = document.getElementById('record-date-str');
+            const liveTsEl = document.getElementById('live-timestamp');
+            if (recordDateEl) recordDateEl.innerText = latest.record_date || '----/--/--';
+            if (liveTsEl) liveTsEl.innerText = `${latest.record_date || '----/--/--'} 結算價`;
 
+            // 若沒有成功取得 auctions_query 數據時的備用生成 logic
             if (treasuryBonds.length === 0) {
-                generateTreasuryScreenerList(latest.record_date || formatDateLocal(new Date()), yield3M, yield4M, yield6M);
+                generateTreasuryScreenerList(latest.record_date, yield3M, yield4M, yield6M);
             }
 
             updateChartFromApiData(data);
@@ -582,10 +640,9 @@
         }
 
         function generateTreasuryScreenerList(baseDateStr, y3m, y4m, y6m) {
-            const parts = baseDateStr.split('-');
-            const baseDate = parts.length === 3 
-                ? new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])) 
-                : new Date();
+            // Parse date safely without timezone shift
+            const [y, m, d] = (baseDateStr || formatDate(new Date())).split('-').map(Number);
+            const baseDate = new Date(y, m - 1, d);
 
             const items = [
                 { offsetDays: 84, tenorLabel: "3M T-Bill", yieldRate: y3m + 0.02, cusipPrefix: "US912797HA" },
@@ -601,11 +658,11 @@
             treasuryBonds = items.map((item, idx) => {
                 const matDate = new Date(baseDate);
                 matDate.setDate(matDate.getDate() + item.offsetDays);
-                const matStr = formatDateLocal(matDate);
+                const matStr = formatDate(matDate);
 
                 const discount = item.yieldRate * 0.968;
                 const askPrice = 100 * (1 - (discount / 100 * (item.offsetDays / 360)));
-                const bidPrice = askPrice - 0.008;
+                const bidPrice = Math.max(0.01, askPrice - 0.008);
 
                 return {
                     cusip: `${item.cusipPrefix}${12 + idx * 3}`,
@@ -629,16 +686,17 @@
             if (!tbody) return;
             tbody.innerHTML = '';
 
-            if (data.length === 0) {
+            if (!data || data.length === 0) {
                 tbody.innerHTML = `
                     <tr>
                         <td colspan="7" class="py-8 text-center text-slate-500 font-sans">
-                            <i data-lucide="inbox" class="w-6 h-6 mx-auto mb-2 opacity-50"></i>
-                            未找到符合條件的國債標的
+                            <div class="flex flex-col items-center gap-2">
+                                <i data-lucide="inbox" class="w-6 h-6 opacity-50"></i>
+                                <span>暫無符合條件的債券數據</span>
+                            </div>
                         </td>
-                    </tr>
-                `;
-                if (window.lucide) lucide.createIcons();
+                    </tr>`;
+                if (window.lucide && window.lucide.createIcons) lucide.createIcons();
                 return;
             }
 
@@ -655,7 +713,7 @@
                     <td class="py-3.5 px-4 font-sans">
                         <div class="font-semibold text-white flex items-center gap-1.5">
                             ${item.name}
-                            <span class="text-[10px] px-1.5 py-0.2 bg-slate-800 text-cyan-400 rounded">${item.type}</span>
+                            <span class="text-[10px] px-1.5 py-0.5 bg-slate-800 text-cyan-400 rounded">${item.type}</span>
                         </div>
                         <div class="text-[11px] text-slate-400 font-mono">${item.cusip}</div>
                     </td>
@@ -674,12 +732,15 @@
                 tbody.appendChild(tr);
             });
 
-            if (window.lucide) lucide.createIcons();
+            if (window.lucide && window.lucide.createIcons) lucide.createIcons();
         }
 
         function initChart() {
             const ctx = document.getElementById('yieldChart');
-            if (!ctx) return;
+            if (!ctx || typeof Chart === 'undefined') {
+                console.warn('Chart.js not loaded');
+                return;
+            }
 
             yieldChart = new Chart(ctx.getContext('2d'), {
                 type: 'line',
@@ -773,10 +834,8 @@
         }
 
         function updateChartFromApiData(data) {
-            if (!yieldChart) return;
+            if (!yieldChart || !data || data.length === 0) return;
             const limit = currentPeriod === '30d' ? 22 : 60;
-            
-            // Reversing array so chronological timeline flows left-to-right
             const recent = [...data].reverse().slice(-limit);
             
             const labels = recent.map(d => d.record_date ? d.record_date.substring(5) : '');
@@ -798,24 +857,29 @@
             const cost = principal * (1 - (discountRate / 100 * (days / 360)));
             const profit = principal - cost;
 
-            document.getElementById('res-cost').innerText = `$${cost.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-            document.getElementById('res-profit').innerText = `+$${profit.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-            document.getElementById('res-discount').innerText = `${discountRate.toFixed(2)}%`;
+            const elCost = document.getElementById('res-cost');
+            const elProfit = document.getElementById('res-profit');
+            const elDiscount = document.getElementById('res-discount');
+
+            if (elCost) elCost.innerText = `$${cost.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            if (elProfit) elProfit.innerText = `+$${profit.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            if (elDiscount) elDiscount.innerText = `${discountRate.toFixed(2)}%`;
         }
 
         function useFallbackTreasuryData() {
             const fallbackData = [];
             const baseDate = new Date();
             
-            // Generating in NEWEST to OLDEST order so index 0 = latest
+            // Generate in reverse chronological order (newest first) to match API format
             for (let i = 0; i <= 60; i++) {
                 const d = new Date(baseDate);
                 d.setDate(d.getDate() - i);
-                if (d.getDay() === 0 || d.getDay() === 6) continue; // Skip weekends
+                // Skip weekends
+                if (d.getDay() === 0 || d.getDay() === 6) continue;
                 
-                const dateStr = formatDateLocal(d);
-                const noise3M = Math.sin(i / 3) * 0.03 + (Math.sin(i) * 0.01);
-                const noise6M = Math.cos(i / 4) * 0.02 + (Math.cos(i) * 0.01);
+                const dateStr = formatDate(d);
+                const noise3M = Math.sin(i / 3) * 0.03 + (Math.random() - 0.5) * 0.01;
+                const noise6M = Math.cos(i / 4) * 0.02 + (Math.random() - 0.5) * 0.01;
 
                 fallbackData.push({
                     record_date: dateStr,
@@ -826,23 +890,19 @@
             }
 
             apiYieldData = fallbackData;
-            
-            const banner = document.getElementById('fallback-banner');
-            if (banner) banner.classList.remove('hidden');
-
-            const statusBadge = document.getElementById('api-status-badge');
-            if (statusBadge) {
-                statusBadge.className = "text-amber-400 font-mono font-medium flex items-center gap-1";
-                statusBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span> Offline Simulated Mode`;
-            }
-
-            document.getElementById('data-source-label').innerText = "離線備用行情";
             processApiYieldData(fallbackData);
-            showToast("已切換至離線備用行情模式", "warning");
         }
 
         function openModal(item) {
             selectedCusip = item.cusip;
+            
+            const elCusip = document.getElementById('modal-cusip');
+            const elBadge = document.getElementById('modal-badge');
+            const elMaturity = document.getElementById('modal-maturity');
+            const elDtm = document.getElementById('modal-dtm');
+            const elYtm = document.getElementById('modal-ytm');
+            const elDiscount = document.getElementById('modal-discount');
+       
             document.getElementById('modal-cusip').innerText = item.cusip;
             document.getElementById('modal-badge').innerText = item.type;
             document.getElementById('modal-maturity').innerText = item.maturity;
