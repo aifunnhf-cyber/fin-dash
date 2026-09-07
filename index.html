@@ -204,9 +204,9 @@
                         </h2>
                         <p class="text-xs text-slate-400">數據源自 US Treasury API (每日官方結算價)</p>
                     </div>
-                    <div class="flex items-center space-x-2 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
-                        <button class="px-3 py-1 rounded-md bg-cyan-600 text-slate-950 font-bold shadow" onclick="changeChartPeriod('30d')">近 30 日</button>
-                        <button class="px-3 py-1 rounded-md text-slate-400 hover:text-white" onclick="changeChartPeriod('90d')">近 90 日</button>
+                    <div class="flex items-center space-x-2 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs" id="chart-period-btns">
+                        <button id="btn-period-30d" class="px-3 py-1 rounded-md bg-cyan-600 text-slate-950 font-bold shadow transition" onclick="changeChartPeriod('30d')">近 30 日</button>
+                        <button id="btn-period-90d" class="px-3 py-1 rounded-md text-slate-400 hover:text-white transition" onclick="changeChartPeriod('90d')">近 90 日</button>
                     </div>
                 </div>
                 <div class="relative h-64 sm:h-72 w-full">
@@ -369,13 +369,14 @@
     </div>
 
     <script>
-        const FISCAL_YIELD_ENDPOINT = "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v2/accounting/od/daily_treasury_yield_curve?sort=-record_date&page[size]=60";
+        const FISCAL_YIELD_ENDPOINT = "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v2/accounting/od/daily_treasury_yield_curve?sort=-record_date&page[size]=90";
         const FISCAL_AUCTION_ENDPOINT = "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/od/auctions_query?filter=security_type:eq:Bill,security_term:in:(13-Week,17-Week,26-Week)&sort=-issue_date&page[size]=20";
 
         let apiYieldData = [];
         let treasuryBonds = [];
         let yieldChart;
         let selectedCusip = "";
+        let currentPeriod = '30d';
 
         // Toast Notification System
         function showToast(message, type = "info") {
@@ -643,21 +644,25 @@
                     labels: [],
                     datasets: [
                         {
-                            label: '3M YTM (bc_3month)',
+                            label: '3M YTM (3個月收益率)',
                             data: [],
                             borderColor: '#06B6D4',
-                            backgroundColor: 'rgba(6, 182, 212, 0.08)',
+                            backgroundColor: 'rgba(6, 182, 212, 0.12)',
                             borderWidth: 2,
-                            tension: 0.3,
+                            pointRadius: 2,
+                            pointHoverRadius: 5,
+                            tension: 0.25,
                             fill: true
                         },
                         {
-                            label: '6M YTM (bc_6month)',
+                            label: '6M YTM (6個月收益率)',
                             data: [],
                             borderColor: '#10B981',
-                            backgroundColor: 'rgba(16, 185, 129, 0.04)',
+                            backgroundColor: 'rgba(16, 185, 129, 0.05)',
                             borderWidth: 2,
-                            tension: 0.3,
+                            pointRadius: 2,
+                            pointHoverRadius: 5,
+                            tension: 0.25,
                             fill: true
                         }
                     ]
@@ -665,20 +670,70 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
                     plugins: {
-                        legend: { labels: { color: '#94a3b8', font: { size: 11 } } }
+                        legend: { 
+                            labels: { color: '#94a3b8', font: { size: 11, family: 'Inter' } } 
+                        },
+                        tooltip: {
+                            backgroundColor: '#0F172A',
+                            borderColor: '#334155',
+                            borderWidth: 1,
+                            titleColor: '#F8FAFC',
+                            bodyColor: '#CBD5E1',
+                            padding: 10,
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.parsed.y}%`;
+                                }
+                            }
+                        }
                     },
                     scales: {
-                        x: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' } },
-                        y: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' } }
+                        x: { 
+                            ticks: { color: '#64748b', font: { size: 10 } }, 
+                            grid: { color: 'rgba(30, 41, 59, 0.5)' } 
+                        },
+                        y: { 
+                            ticks: { 
+                                color: '#64748b', 
+                                font: { size: 10 },
+                                callback: function(value) { return value.toFixed(2) + '%'; }
+                            }, 
+                            grid: { color: 'rgba(30, 41, 59, 0.5)' } 
+                        }
                     }
                 }
             });
         }
 
+        function changeChartPeriod(period) {
+            currentPeriod = period;
+            
+            const btn30 = document.getElementById('btn-period-30d');
+            const btn90 = document.getElementById('btn-period-90d');
+
+            if (period === '30d') {
+                if (btn30) btn30.className = "px-3 py-1 rounded-md bg-cyan-600 text-slate-950 font-bold shadow transition";
+                if (btn90) btn90.className = "px-3 py-1 rounded-md text-slate-400 hover:text-white transition";
+            } else {
+                if (btn30) btn30.className = "px-3 py-1 rounded-md text-slate-400 hover:text-white transition";
+                if (btn90) btn90.className = "px-3 py-1 rounded-md bg-cyan-600 text-slate-950 font-bold shadow transition";
+            }
+
+            if (apiYieldData && apiYieldData.length > 0) {
+                updateChartFromApiData(apiYieldData);
+            }
+        }
+
         function updateChartFromApiData(data) {
             if (!yieldChart) return;
-            const recent = [...data].reverse().slice(-20);
+            const limit = currentPeriod === '30d' ? 22 : 60;
+            const recent = [...data].reverse().slice(-limit);
+            
             const labels = recent.map(d => d.record_date.substring(5));
             const series3M = recent.map(d => parseFloat(d.bc_3month) || null);
             const series6M = recent.map(d => parseFloat(d.bc_6month) || null);
@@ -704,13 +759,28 @@
         }
 
         function useFallbackTreasuryData() {
-            const fallbackData = [
-                { record_date: "2026-03-05", bc_3month: "5.235", bc_4month: "5.210", bc_6month: "5.148" },
-                { record_date: "2026-03-04", bc_3month: "5.225", bc_4month: "5.200", bc_6month: "5.150" },
-                { record_date: "2026-03-03", bc_3month: "5.240", bc_4month: "5.215", bc_6month: "5.155" },
-                { record_date: "2026-03-02", bc_3month: "5.230", bc_4month: "5.205", bc_6month: "5.140" },
-                { record_date: "2026-02-27", bc_3month: "5.250", bc_4month: "5.220", bc_6month: "5.160" }
-            ];
+            const fallbackData = [];
+            const baseDate = new Date();
+            
+            for (let i = 60; i >= 0; i--) {
+                const d = new Date(baseDate);
+                d.setDate(d.getDate() - i);
+                // Skip weekends
+                if (d.getDay() === 0 || d.getDay() === 6) continue;
+                
+                const dateStr = d.toISOString().split('T')[0];
+                const noise3M = Math.sin(i / 3) * 0.03 + (Math.random() - 0.5) * 0.01;
+                const noise6M = Math.cos(i / 4) * 0.02 + (Math.random() - 0.5) * 0.01;
+
+                fallbackData.push({
+                    record_date: dateStr,
+                    bc_3month: (5.235 + noise3M).toFixed(3),
+                    bc_4month: (5.210 + noise3M * 0.8).toFixed(3),
+                    bc_6month: (5.148 + noise6M).toFixed(3)
+                });
+            }
+
+            apiYieldData = fallbackData;
             processApiYieldData(fallbackData);
         }
 
