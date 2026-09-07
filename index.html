@@ -185,7 +185,7 @@
                 <div class="mt-3 pt-2 border-t border-slate-800/60 flex justify-between text-xs text-slate-400">
                     <span>API 狀態</span>
                     <span class="text-emerald-400 font-mono font-medium flex items-center gap-1" id="api-status-badge">
-                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> FiscalData Live
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Yield & Auction Live
                     </span>
                 </div>
             </div>
@@ -369,7 +369,8 @@
     </div>
 
     <script>
-        const FISCAL_DATA_ENDPOINT = "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v2/accounting/od/daily_treasury_yield_curve?sort=-record_date&page[size]=60";
+        const FISCAL_YIELD_ENDPOINT = "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v2/accounting/od/daily_treasury_yield_curve?sort=-record_date&page[size]=60";
+        const FISCAL_AUCTION_ENDPOINT = "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/od/auctions_query?filter=security_type:eq:Bill,security_term:in:(13-Week,17-Week,26-Week)&sort=-issue_date&page[size]=20";
 
         let apiYieldData = [];
         let treasuryBonds = [];
@@ -416,56 +417,85 @@
 
             const statusBadge = document.getElementById('api-status-badge');
 
-            // API Proxies to avoid strict CORS block
-            const endpoints = [
-                FISCAL_DATA_ENDPOINT,
-                "https://corsproxy.io/?" + encodeURIComponent(FISCAL_DATA_ENDPOINT),
-                "https://api.allorigins.win/raw?url=" + encodeURIComponent(FISCAL_DATA_ENDPOINT)
-            ];
-
-            let success = false;
-
             try {
-                for (let i = 0; i < endpoints.length; i++) {
-                    try {
-                        const controller = new AbortController();
-                        const timeoutId = setTimeout(() => controller.abort(), 2500); // 2.5s timeout
-                        const response = await fetch(endpoints[i], { signal: controller.signal });
-                        clearTimeout(timeoutId);
+                // 並行抓取每日收益率曲線與真實國債拍賣數據 (auctions_query)
+                const [yieldRes, auctionRes] = await Promise.allSettled([
+                    fetch(FISCAL_YIELD_ENDPOINT).then(r => r.json()),
+                    fetch(FISCAL_AUCTION_ENDPOINT).then(r => r.json())
+                ]);
 
-                        if (!response.ok) continue;
+                let yieldSuccess = false;
+                let auctionSuccess = false;
 
-                        const json = await response.json();
-                        if (json && json.data && json.data.length > 0) {
-                            apiYieldData = json.data;
-                            processApiYieldData(apiYieldData);
-                            
-                            if (statusBadge) {
-                                statusBadge.className = "text-emerald-400 font-mono font-medium flex items-center gap-1";
-                                statusBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> FiscalData Live`;
-                            }
-                            
-                            showToast("已成功更新美國財政部 (Fiscal Data) 最新國債數據！");
-                            success = true;
-                            break;
-                        }
-                    } catch (err) {
-                        console.warn(`API 節點 [${i + 1}] 無法連線:`, err);
-                    }
+                if (yieldRes.status === 'fulfilled' && yieldRes.value?.data?.length > 0) {
+                    apiYieldData = yieldRes.value.data;
+                    processApiYieldData(apiYieldData);
+                    yieldSuccess = true;
                 }
 
-                if (!success) {
-                    useFallbackTreasuryData();
+                if (auctionRes.status === 'fulfilled' && auctionRes.value?.data?.length > 0) {
+                    processAuctionData(auctionRes.value.data);
+                    auctionSuccess = true;
+                }
+
+                if (yieldSuccess || auctionSuccess) {
                     if (statusBadge) {
-                        statusBadge.className = "text-amber-400 font-mono font-medium flex items-center gap-1";
-                        statusBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span> Offline Fallback Mode`;
+                        statusBadge.className = "text-emerald-400 font-mono font-medium flex items-center gap-1";
+                        statusBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> FiscalData Real-time`;
                     }
-                    showToast("已載入最新歷史備用國債行情數據", "warning");
+                    showToast(`已成功同步美財政部 Yield Curve 與 ${auctionSuccess ? '真實拍賣 (auctions_query)' : ''} 數據！`);
+                } else {
+                    useFallbackTreasuryData();
                 }
+            } catch (err) {
+                console.warn("API 讀取異常，啟動備用行情模式:", err);
+                useFallbackTreasuryData();
             } finally {
-                // Ensure spinner ALWAYS stops rotating
                 if (refreshIcon) refreshIcon.classList.remove('animate-spin');
             }
+        }
+
+        function processAuctionData(auctionList) {
+            const now = new Date();
+
+            // 過濾並轉換真實拍賣數據
+            treasuryBonds = auctionList.map(item => {
+                const matDate = new Date(item.maturity_date);
+                const issueDate = new Date(item.issue_date);
+                
+                // 計算剩餘天數 (DTM)
+                const diffTime = matDate - now;
+                const dtm = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+
+                const highYield = parseFloat(item.high_investment_rate || item.high_yield || item.investment_rate || 5.20);
+                const discountRate = parseFloat(item.high_discount_rate || (highYield * 0.968));
+                
+                // 計算估算價格
+                const askPrice = item.price_per100 ? parseFloat(item.price_per100) : (100 * (1 - (discountRate / 100 * (dtm / 360))));
+                const bidPrice = askPrice - 0.008;
+
+                let tenorLabel = item.security_term;
+                if (tenorLabel === '13-Week') tenorLabel = '3M T-Bill';
+                else if (tenorLabel === '17-Week') tenorLabel = '4M T-Bill';
+                else if (tenorLabel === '26-Week') tenorLabel = '6M T-Bill';
+
+                return {
+                    cusip: item.cusip || "US912797HA12",
+                    name: `US TREASURY BILL (${item.security_term})`,
+                    type: tenorLabel,
+                    issueDate: item.issue_date,
+                    maturity: item.maturity_date,
+                    dtm: dtm,
+                    bid: bidPrice,
+                    ask: askPrice,
+                    ytm: highYield,
+                    discount: discountRate
+                };
+            });
+
+            // 依到期日排序
+            treasuryBonds.sort((a, b) => new Date(a.maturity) - new Date(b.maturity));
+            renderTable(treasuryBonds);
         }
 
         function processApiYieldData(data) {
@@ -514,7 +544,11 @@
             document.getElementById('record-date-str').innerText = latest.record_date;
             document.getElementById('live-timestamp').innerText = `${latest.record_date} 結算價`;
 
-            generateTreasuryScreenerList(latest.record_date, yield3M, yield4M, yield6M);
+            // 若沒有成功取得 auctions_query 數據時的備用生成 logic
+            if (treasuryBonds.length === 0) {
+                generateTreasuryScreenerList(latest.record_date, yield3M, yield4M, yield6M);
+            }
+
             updateChartFromApiData(data);
             calculateYield();
         }
