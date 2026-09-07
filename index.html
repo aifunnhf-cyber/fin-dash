@@ -72,7 +72,6 @@
 </head>
 <body class="min-h-screen bg-[#070A10] text-slate-200 antialiased selection:bg-cyan-500 selection:text-black">
 
-    <!-- Top Navigation Header -->
     <header class="border-b border-slate-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-40">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <div class="flex items-center space-x-3">
@@ -92,10 +91,10 @@
             <div class="flex items-center space-x-4">
                 <div class="hidden md:flex items-center space-x-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-xs">
                     <span class="relative flex h-2 w-2">
-                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                      <span id="pulse-dot-ping" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span id="pulse-dot" class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                     </span>
-                    <span class="text-slate-300">數據源：<span class="text-cyan-400 font-medium">US Treasury Fiscal Data</span></span>
+                    <span class="text-slate-300">數據源：<span id="data-source-label" class="text-cyan-400 font-medium">US Treasury Fiscal Data</span></span>
                     <span class="text-slate-500">|</span>
                     <span class="font-mono text-slate-400" id="live-timestamp">載入中...</span>
                 </div>
@@ -110,8 +109,16 @@
         </div>
     </header>
 
-    <!-- Main Container -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- Offline / Fallback Notice Banner (Hidden by default) -->
+        <div id="fallback-banner" class="hidden bg-amber-950/80 border border-amber-800/80 text-amber-200 px-4 py-2.5 rounded-xl text-xs flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <i data-lucide="wifi-off" class="w-4 h-4 text-amber-400"></i>
+                <span>目前使用離線備用市場行情資料 (Fiscal API 未能連接或受到跨域限制)。</span>
+            </div>
+            <button onclick="fetchLiveTreasuryData()" class="underline font-semibold hover:text-white">重試連線</button>
+        </div>
 
         <!-- Key Metrics Row -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -166,7 +173,7 @@
                 </div>
                 <div class="mt-3 pt-2 border-t border-slate-800/60 flex justify-between text-xs text-slate-400 font-mono">
                     <span>最新數據日期</span>
-                    <span class="text-slate-300" id="record-date-str">2026-03-05</span>
+                    <span class="text-slate-300" id="record-date-str">--</span>
                 </div>
             </div>
 
@@ -192,7 +199,6 @@
 
         </div>
 
-        <!-- Charts & Calculator Section -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
             <!-- Left: Yield Trend Chart -->
@@ -267,7 +273,6 @@
             </div>
         </div>
 
-        <!-- T-Bills Table / Screener -->
         <div class="bg-slate-900/90 border border-slate-800 p-5 rounded-xl">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
                 <div>
@@ -306,7 +311,6 @@
 
     </main>
 
-    <!-- Modal Drawer: Bond Detail -->
     <div id="bond-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl transform transition-all">
             <div class="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-950">
@@ -317,7 +321,7 @@
                     </div>
                     <p id="modal-title" class="text-xs text-slate-400 mt-0.5">United States Treasury Bill (Discount Note)</p>
                 </div>
-                <button onclick="closeModal()" class="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white">
+                <button onclick="closeModal()" class="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
@@ -378,6 +382,14 @@
         let selectedCusip = "";
         let currentPeriod = '30d';
 
+        // Helper: Date string generator (Timezone Safe)
+        function formatDateLocal(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
         // Toast Notification System
         function showToast(message, type = "info") {
             let container = document.getElementById('toast-container');
@@ -412,17 +424,33 @@
             }, 3500);
         }
 
+        // Fetch with Timeout Guard
+        async function fetchWithTimeout(resource, options = {}) {
+            const { timeout = 6000 } = options;
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), timeout);
+            try {
+                const response = await fetch(resource, { ...options, signal: controller.signal });
+                clearTimeout(id);
+                return response;
+            } catch (error) {
+                clearTimeout(id);
+                throw error;
+            }
+        }
+
         async function fetchLiveTreasuryData() {
             const refreshIcon = document.getElementById('refresh-icon');
             if (refreshIcon) refreshIcon.classList.add('animate-spin');
 
             const statusBadge = document.getElementById('api-status-badge');
+            const banner = document.getElementById('fallback-banner');
 
             try {
-                // 並行抓取每日收益率曲線與真實國債拍賣數據 (auctions_query)
+                // 並行抓取每日收益率曲線與真實國債拍賣數據
                 const [yieldRes, auctionRes] = await Promise.allSettled([
-                    fetch(FISCAL_YIELD_ENDPOINT).then(r => r.json()),
-                    fetch(FISCAL_AUCTION_ENDPOINT).then(r => r.json())
+                    fetchWithTimeout(FISCAL_YIELD_ENDPOINT).then(r => r.json()),
+                    fetchWithTimeout(FISCAL_AUCTION_ENDPOINT).then(r => r.json())
                 ]);
 
                 let yieldSuccess = false;
@@ -444,12 +472,14 @@
                         statusBadge.className = "text-emerald-400 font-mono font-medium flex items-center gap-1";
                         statusBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> FiscalData Real-time`;
                     }
-                    showToast(`已成功同步美財政部 Yield Curve 與 ${auctionSuccess ? '真實拍賣 (auctions_query)' : ''} 數據！`);
+                    if (banner) banner.classList.add('hidden');
+                    document.getElementById('data-source-label').innerText = "US Treasury Fiscal Data";
+                    showToast(`已成功同步美財政部 Yield Curve 與 ${auctionSuccess ? '真實拍賣' : '市場估算'} 數據！`);
                 } else {
                     useFallbackTreasuryData();
                 }
             } catch (err) {
-                console.warn("API 讀取異常，啟動備用行情模式:", err);
+                console.warn("API 讀取異常或連線逾時，啟動備用行情模式:", err);
                 useFallbackTreasuryData();
             } finally {
                 if (refreshIcon) refreshIcon.classList.remove('animate-spin');
@@ -459,33 +489,30 @@
         function processAuctionData(auctionList) {
             const now = new Date();
 
-            // 過濾並轉換真實拍賣數據
             treasuryBonds = auctionList.map(item => {
                 const matDate = new Date(item.maturity_date);
-                const issueDate = new Date(item.issue_date);
-                
-                // 計算剩餘天數 (DTM)
                 const diffTime = matDate - now;
                 const dtm = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
 
                 const highYield = parseFloat(item.high_investment_rate || item.high_yield || item.investment_rate || 5.20);
                 const discountRate = parseFloat(item.high_discount_rate || (highYield * 0.968));
                 
-                // 計算估算價格
-                const askPrice = item.price_per100 ? parseFloat(item.price_per100) : (100 * (1 - (discountRate / 100 * (dtm / 360))));
+                const askPrice = item.price_per100 && !isNaN(parseFloat(item.price_per100)) 
+                    ? parseFloat(item.price_per100) 
+                    : (100 * (1 - (discountRate / 100 * (dtm / 360))));
                 const bidPrice = askPrice - 0.008;
 
-                let tenorLabel = item.security_term;
+                let tenorLabel = item.security_term || "T-Bill";
                 if (tenorLabel === '13-Week') tenorLabel = '3M T-Bill';
                 else if (tenorLabel === '17-Week') tenorLabel = '4M T-Bill';
                 else if (tenorLabel === '26-Week') tenorLabel = '6M T-Bill';
 
                 return {
                     cusip: item.cusip || "US912797HA12",
-                    name: `US TREASURY BILL (${item.security_term})`,
+                    name: `US TREASURY BILL (${item.security_term || 'Discount Note'})`,
                     type: tenorLabel,
-                    issueDate: item.issue_date,
-                    maturity: item.maturity_date,
+                    issueDate: item.issue_date || formatDateLocal(now),
+                    maturity: item.maturity_date || formatDateLocal(matDate),
                     dtm: dtm,
                     bid: bidPrice,
                     ask: askPrice,
@@ -494,13 +521,14 @@
                 };
             });
 
-            // 依到期日排序
             treasuryBonds.sort((a, b) => new Date(a.maturity) - new Date(b.maturity));
             renderTable(treasuryBonds);
         }
 
         function processApiYieldData(data) {
-            const latest = data[0];
+            if (!data || data.length === 0) return;
+
+            const latest = data[0]; // Newest date is index 0
             const previous = data[1] || latest;
 
             const yield3M = parseFloat(latest.bc_3month) || 5.235;
@@ -542,12 +570,11 @@
                 spreadStatusEl.className = "text-[10px] px-1.5 py-0.5 bg-emerald-950 text-emerald-300 rounded font-medium border border-emerald-800/50";
             }
 
-            document.getElementById('record-date-str').innerText = latest.record_date;
-            document.getElementById('live-timestamp').innerText = `${latest.record_date} 結算價`;
+            document.getElementById('record-date-str').innerText = latest.record_date || formatDateLocal(new Date());
+            document.getElementById('live-timestamp').innerText = `${latest.record_date || '即時'} 結算價`;
 
-            // 若沒有成功取得 auctions_query 數據時的備用生成 logic
             if (treasuryBonds.length === 0) {
-                generateTreasuryScreenerList(latest.record_date, yield3M, yield4M, yield6M);
+                generateTreasuryScreenerList(latest.record_date || formatDateLocal(new Date()), yield3M, yield4M, yield6M);
             }
 
             updateChartFromApiData(data);
@@ -555,7 +582,10 @@
         }
 
         function generateTreasuryScreenerList(baseDateStr, y3m, y4m, y6m) {
-            const baseDate = new Date(baseDateStr);
+            const parts = baseDateStr.split('-');
+            const baseDate = parts.length === 3 
+                ? new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])) 
+                : new Date();
 
             const items = [
                 { offsetDays: 84, tenorLabel: "3M T-Bill", yieldRate: y3m + 0.02, cusipPrefix: "US912797HA" },
@@ -571,7 +601,7 @@
             treasuryBonds = items.map((item, idx) => {
                 const matDate = new Date(baseDate);
                 matDate.setDate(matDate.getDate() + item.offsetDays);
-                const matStr = matDate.toISOString().split('T')[0];
+                const matStr = formatDateLocal(matDate);
 
                 const discount = item.yieldRate * 0.968;
                 const askPrice = 100 * (1 - (discount / 100 * (item.offsetDays / 360)));
@@ -598,6 +628,19 @@
             const tbody = document.getElementById('tbill-table-body');
             if (!tbody) return;
             tbody.innerHTML = '';
+
+            if (data.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="py-8 text-center text-slate-500 font-sans">
+                            <i data-lucide="inbox" class="w-6 h-6 mx-auto mb-2 opacity-50"></i>
+                            未找到符合條件的國債標的
+                        </td>
+                    </tr>
+                `;
+                if (window.lucide) lucide.createIcons();
+                return;
+            }
 
             data.forEach(item => {
                 const tr = document.createElement('tr');
@@ -732,9 +775,11 @@
         function updateChartFromApiData(data) {
             if (!yieldChart) return;
             const limit = currentPeriod === '30d' ? 22 : 60;
+            
+            // Reversing array so chronological timeline flows left-to-right
             const recent = [...data].reverse().slice(-limit);
             
-            const labels = recent.map(d => d.record_date.substring(5));
+            const labels = recent.map(d => d.record_date ? d.record_date.substring(5) : '');
             const series3M = recent.map(d => parseFloat(d.bc_3month) || null);
             const series6M = recent.map(d => parseFloat(d.bc_6month) || null);
 
@@ -762,15 +807,15 @@
             const fallbackData = [];
             const baseDate = new Date();
             
-            for (let i = 60; i >= 0; i--) {
+            // Generating in NEWEST to OLDEST order so index 0 = latest
+            for (let i = 0; i <= 60; i++) {
                 const d = new Date(baseDate);
                 d.setDate(d.getDate() - i);
-                // Skip weekends
-                if (d.getDay() === 0 || d.getDay() === 6) continue;
+                if (d.getDay() === 0 || d.getDay() === 6) continue; // Skip weekends
                 
-                const dateStr = d.toISOString().split('T')[0];
-                const noise3M = Math.sin(i / 3) * 0.03 + (Math.random() - 0.5) * 0.01;
-                const noise6M = Math.cos(i / 4) * 0.02 + (Math.random() - 0.5) * 0.01;
+                const dateStr = formatDateLocal(d);
+                const noise3M = Math.sin(i / 3) * 0.03 + (Math.sin(i) * 0.01);
+                const noise6M = Math.cos(i / 4) * 0.02 + (Math.cos(i) * 0.01);
 
                 fallbackData.push({
                     record_date: dateStr,
@@ -781,7 +826,19 @@
             }
 
             apiYieldData = fallbackData;
+            
+            const banner = document.getElementById('fallback-banner');
+            if (banner) banner.classList.remove('hidden');
+
+            const statusBadge = document.getElementById('api-status-badge');
+            if (statusBadge) {
+                statusBadge.className = "text-amber-400 font-mono font-medium flex items-center gap-1";
+                statusBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span> Offline Simulated Mode`;
+            }
+
+            document.getElementById('data-source-label').innerText = "離線備用行情";
             processApiYieldData(fallbackData);
+            showToast("已切換至離線備用行情模式", "warning");
         }
 
         function openModal(item) {
@@ -803,31 +860,54 @@
             document.getElementById('bond-modal').classList.add('hidden');
         }
 
-        function copyCusipCode(text) {
-            const textarea = document.createElement('textarea');
-            textarea.value = text;
-            document.body.appendChild(textarea);
-            textarea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textarea);
-            showToast(`已複製 CUSIP 代碼: ${text}`);
+        async function copyCusipCode(text) {
+            try {
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(text);
+                } else {
+                    const textarea = document.createElement('textarea');
+                    textarea.value = text;
+                    textarea.style.position = 'fixed';
+                    textarea.style.opacity = '0';
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                }
+                showToast(`已複製 CUSIP 代碼: ${text}`);
+            } catch (err) {
+                showToast(`複製失敗，代碼為: ${text}`, "warning");
+            }
         }
 
         function copyModalCusip() {
             if (selectedCusip) copyCusipCode(selectedCusip);
         }
 
+        // Keyboard & Backdrop event handlers for Modal
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+        });
+
         window.addEventListener('DOMContentLoaded', () => {
             if (window.lucide) lucide.createIcons();
             initChart();
             
+            // Modal outside click listener
+            const modalEl = document.getElementById('bond-modal');
+            if (modalEl) {
+                modalEl.addEventListener('click', (e) => {
+                    if (e.target === modalEl) closeModal();
+                });
+            }
+
             ['calc-principal', 'calc-days', 'calc-rate'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.addEventListener('input', calculateYield);
             });
 
             document.getElementById('search-input')?.addEventListener('input', (e) => {
-                const term = e.target.value.toLowerCase();
+                const term = e.target.value.toLowerCase().trim();
                 const filtered = treasuryBonds.filter(item => 
                     item.name.toLowerCase().includes(term) || 
                     item.cusip.toLowerCase().includes(term) ||
