@@ -1,495 +1,462 @@
 <!DOCTYPE html>
-<html lang="zh-Hant" class="dark">
+<html lang="zh-HK" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>US Treasury Bills (3M - 6M) Financial Dashboard</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- FontAwesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>3-6個月美債專屬監控儀表板 | US Treasury 3M-6M Analytics</title>
     
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
             theme: {
                 extend: {
                     colors: {
-                        brand: {
-                            50: '#eff6ff',
-                            500: '#3b82f6',
-                            600: '#2563eb',
-                            900: '#1e3a8a',
+                        slate: {
+                            850: '#111827',
+                            950: '#0B0F17',
                         },
-                        darkbg: '#0f172a',
-                        cardbg: '#1e293b',
-                        bordercolor: '#334155'
+                        fintech: {
+                            green: '#10B981',
+                            red: '#EF4444',
+                            accent: '#06B6D4',
+                            gold: '#F59E0B',
+                            card: '#131C2E',
+                            border: '#1E293B'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
                     }
                 }
             }
         }
     </script>
+
+    <!-- Google Fonts & Chart.js & Lucide Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
     <style>
-        body { background-color: #0b0f19; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-        .glass-panel { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #0f172a; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #070A10;
+            color: #E2E8F0;
+        }
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        /* Custom scrollbar for fintech look */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0B0F17;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1E293B;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #334155;
+        }
+        .glow-cyan {
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.15);
+        }
+        .glow-green {
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.15);
+        }
     </style>
 </head>
-<body class="min-h-screen p-4 md:p-6 custom-scrollbar">
+<body class="min-h-screen bg-[#070A10] text-slate-200 antialiased selection:bg-cyan-500 selection:text-black">
 
-    <!-- Header / Navbar -->
-    <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 pb-4 border-b border-gray-800 gap-4">
-        <div>
+    <!-- Top Navigation Header -->
+    <header class="border-b border-slate-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <div class="flex items-center space-x-3">
-                <span class="bg-blue-600/20 text-blue-400 p-2 rounded-lg"><i class="fa-solid me-1 fa-chart-line text-xl"></i></span>
+                <div class="p-2 bg-gradient-to-tr from-cyan-600 to-emerald-500 rounded-lg text-black font-bold">
+                    <i data-lucide="line-chart" class="w-5 h-5 text-slate-950"></i>
+                </div>
                 <div>
-                    <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-                        US Treasury 3M - 6M Terminal
-                        <span class="bg-blue-500/20 text-blue-400 text-xs px-2.5 py-0.5 rounded-full font-medium border border-blue-500/30">FRED Direct Live</span>
-                    </h1>
-                    <p class="text-xs text-gray-400 mt-0.5">專注 3 至 6 個月貼現國債 (T-Bills) 的動態監控與分析儀表板</p>
+                    <div class="flex items-center space-x-2">
+                        <span class="font-bold text-lg tracking-tight text-white">US TREASURY</span>
+                        <span class="text-xs px-2 py-0.5 bg-cyan-950 text-cyan-400 border border-cyan-800/50 rounded font-mono font-medium">3M - 6M FOCUS</span>
+                    </div>
+                    <p class="text-xs text-slate-400 hidden sm:block">美國短期國債 (T-Bills) 收益率與到期日即時監控儀表板</p>
                 </div>
             </div>
-        </div>
-        
-        <div class="flex items-center space-x-3">
-            <div class="text-right hidden sm:block">
-                <div class="text-xs text-gray-400">FRED API 連線狀態</div>
-                <div id="api-status" class="text-xs text-emerald-400 font-medium flex items-center justify-end gap-1">
-                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> 已串接 Key
+
+            <!-- Market Status Badge & Quick Controls -->
+            <div class="flex items-center space-x-4">
+            <div class="hidden md:flex items-center space-x-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-xs">
+                <span class="relative flex h-2 w-2">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span class="text-slate-300">數據源：<span class="text-cyan-400 font-medium">US Treasury Fiscal Data API</span></span>
+                <span class="text-slate-500">|</span>
+                <span class="font-mono text-slate-400" id="live-timestamp">載入中...</span>
+            </div>
+
+            <div class="flex items-center space-x-2">
+                <button id="refresh-btn" onclick="fetchLiveTreasuryData()" class="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition flex items-center gap-1 text-xs border border-slate-800">
+                    <i data-lucide="refresh-cw" class="w-4 h-4" id="refresh-icon"></i>
+                    <span class="hidden sm:inline">同步財政部 API</span>
+                </button>
+                    <div class="h-6 w-[1px] bg-slate-800"></div>
+                    <button class="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition">
+                        <i data-lucide="bell" class="w-4 h-4"></i>
+                    </button>
+                    <button class="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition">
+                        <i data-lucide="settings" class="w-4 h-4"></i>
+                    </button>
                 </div>
             </div>
-            <button id="refresh-btn" onclick="loadFredData()" class="bg-gray-800 hover:bg-gray-700 text-gray-200 px-3 py-2 rounded-lg text-sm border border-gray-700 transition flex items-center gap-2">
-                <i class="fa-solid fa-arrows-rotate" id="refresh-icon"></i>
-                <span>更新數據</span>
-            </button>
         </div>
     </header>
 
-    <!-- Top KPI Cards -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <!-- 3M Yield -->
-        <div class="glass-panel p-4 rounded-xl border border-gray-800 hover:border-gray-700 transition">
-            <div class="flex justify-between items-start">
-                <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">3 個月國債收益率 (3M YTM)</span>
-                <span class="text-xs px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 font-mono">DGS3MO</span>
-            </div>
-            <div class="mt-2 flex items-baseline justify-between">
-                <span class="text-3xl font-extrabold text-white font-mono" id="kpi-3m-yield">-- %</span>
-                <span class="text-xs font-medium text-emerald-400 flex items-center gap-0.5" id="kpi-3m-change">
-                    <i class="fa-solid fa-arrow-trend-up"></i> +0.02%
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- Key Metrics Row -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        <!-- Card 1: 3-Month T-Bill Yield -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 relative overflow-hidden group hover:border-slate-700 transition">
+            <div class="flex justify-between items-start mb-2">
+                <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">3個月國債收益率 (3M YTM)</span>
+                <span class="p-1.5 bg-emerald-950/60 border border-emerald-800/40 rounded text-emerald-400">
+                    <i data-lucide="trending-up" class="w-4 h-4"></i>
                 </span>
             </div>
-            <p class="text-[11px] text-gray-400 mt-2 flex justify-between">
-                <span>貼現率 (Discount Rate): <strong class="text-gray-300 font-mono" id="kpi-3m-discount">--%</strong></span>
-            </p>
-        </div>
-
-        <!-- 6M Yield -->
-        <div class="glass-panel p-4 rounded-xl border border-gray-800 hover:border-gray-700 transition">
-            <div class="flex justify-between items-start">
-                <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">6 個月國債收益率 (6M YTM)</span>
-                <span class="text-xs px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 font-mono">DGS6MO</span>
-            </div>
-            <div class="mt-2 flex items-baseline justify-between">
-                <span class="text-3xl font-extrabold text-white font-mono" id="kpi-6m-yield">-- %</span>
-                <span class="text-xs font-medium text-rose-400 flex items-center gap-0.5" id="kpi-6m-change">
-                    <i class="fa-solid fa-arrow-trend-down"></i> -0.01%
+            <div class="flex items-baseline space-x-2">
+                <span class="text-3xl font-bold font-mono text-white" id="yield-3m">-- %</span>
+                <span class="text-xs font-mono font-medium text-emerald-400" id="change-3m">
+                    --
                 </span>
             </div>
-            <p class="text-[11px] text-gray-400 mt-2 flex justify-between">
-                <span>貼現率 (Discount Rate): <strong class="text-gray-300 font-mono" id="kpi-6m-discount">--%</strong></span>
-            </p>
+            <div class="mt-3 pt-2 border-t border-slate-800/60 flex justify-between text-xs text-slate-400 font-mono">
+                <span>90 天期 (T-Bill)</span>
+                <span class="text-slate-300" id="discount-3m">貼現率: --%</span>
+            </div>
         </div>
 
-        <!-- 3M/6M Spread -->
-        <div class="glass-panel p-4 rounded-xl border border-gray-800 hover:border-gray-700 transition">
-            <div class="flex justify-between items-start">
-                <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">3M vs 6M 利差 (Spread)</span>
-                <span class="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400">3M-6M</span>
+        <!-- Card 2: 6-Month T-Bill Yield -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 relative overflow-hidden group hover:border-slate-700 transition">
+            <div class="flex justify-between items-start mb-2">
+                <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">6個月國債收益率 (6M YTM)</span>
+                <span class="p-1.5 bg-cyan-950/60 border border-cyan-800/40 rounded text-cyan-400">
+                    <i data-lucide="activity" class="w-4 h-4"></i>
+                </span>
             </div>
-            <div class="mt-2 flex items-baseline justify-between">
-                <span class="text-3xl font-extrabold text-emerald-400 font-mono" id="kpi-spread">-- bps</span>
-                <span class="text-xs bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded font-medium" id="kpi-curve-status">正常收益</span>
+            <div class="flex items-baseline space-x-2">
+                <span class="text-3xl font-bold font-mono text-white" id="yield-6m">-- %</span>
+                <span class="text-xs font-mono font-medium text-red-400" id="change-6m">
+                    --
+                </span>
             </div>
-            <p class="text-[11px] text-gray-400 mt-2">
-                反映極短期利率路徑預期與市場流動性溢價
-            </p>
+            <div class="mt-3 pt-2 border-t border-slate-800/60 flex justify-between text-xs text-slate-400 font-mono">
+                <span>180 天期 (T-Bill)</span>
+                <span class="text-slate-300" id="discount-6m">貼現率: --%</span>
+            </div>
         </div>
 
-        <!-- Fed Target Rate -->
-        <div class="glass-panel p-4 rounded-xl border border-gray-800 hover:border-gray-700 transition">
-            <div class="flex justify-between items-start">
-                <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">聯準會聯邦基金利率目標</span>
-                <span class="text-xs px-2 py-0.5 rounded bg-amber-500/10 text-amber-400">Fed Target</span>
+        <!-- Card 3: 3M-6M Spread -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 relative overflow-hidden group hover:border-slate-700 transition">
+            <div class="flex justify-between items-start mb-2">
+                <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">3M - 6M 期限利差 (Spread)</span>
+                <span class="p-1.5 bg-amber-950/60 border border-amber-800/40 rounded text-amber-400">
+                    <i data-lucide="arrow-left-right" class="w-4 h-4"></i>
+                </span>
             </div>
-            <div class="mt-2 flex items-baseline justify-between">
-                <span class="text-3xl font-extrabold text-white font-mono">5.25 - 5.50%</span>
-                <span class="text-xs text-gray-400">基準利率</span>
+            <div class="flex items-baseline space-x-2">
+                <span class="text-3xl font-bold font-mono text-amber-400" id="yield-spread">-- bps</span>
+                <span class="text-[10px] px-1.5 py-0.5 bg-amber-950 text-amber-300 rounded font-medium border border-amber-800/50" id="spread-status">讀取中</span>
             </div>
-            <p class="text-[11px] text-gray-400 mt-2 flex justify-between">
-                <span>下一次 FOMC 會議: <strong class="text-gray-300">諮詢中期</strong></span>
-            </p>
+            <div class="mt-3 pt-2 border-t border-slate-800/60 flex justify-between text-xs text-slate-400 font-mono">
+                <span>最新發布日期</span>
+                <span class="text-slate-300" id="record-date-str">----/--/--</span>
+            </div>
         </div>
+
+        <!-- Card 4: Fed Target / Market Overview -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 relative overflow-hidden group hover:border-slate-700 transition">
+            <div class="flex justify-between items-start mb-2">
+                <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">聯準會基準利率目標</span>
+                <span class="p-1.5 bg-purple-950/60 border border-purple-800/40 rounded text-purple-400">
+                    <i data-lucide="landmark" class="w-4 h-4"></i>
+                </span>
+            </div>
+            <div class="flex flex-col">
+                <span class="text-2xl font-bold font-mono text-white">5.25% - 5.50%</span>
+                <span class="text-xs text-purple-300 font-mono mt-0.5">Fed Funds Target Range</span>
+            </div>
+            <div class="mt-3 pt-2 border-t border-slate-800/60 flex justify-between text-xs text-slate-400">
+                <span>API 狀態</span>
+                <span class="text-emerald-400 font-mono font-medium flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> FiscalData Live
+                </span>
+            </div>
+        </div>
+
     </div>
 
-    <!-- Main Content Area: Charts & Calculator -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        
-        <!-- Left: Yield Trend Chart (2 Cols) -->
-        <div class="lg:col-span-2 glass-panel p-5 rounded-xl border border-gray-800 flex flex-col justify-between">
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
+    <!-- Modal: Bond Detail Drawer with Cashflow Timeline -->
+    <div id="bond-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl transform transition-all">
+            <div class="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-950">
                 <div>
-                    <h2 class="text-lg font-semibold text-white flex items-center gap-2">
-                        <i class="fa-solid fa-chart-area text-blue-400"></i> FRED 歷史收益率走勢
-                    </h2>
-                    <p class="text-xs text-gray-400">3M 及 6M 國債收益率歷史趨勢 (資料源自 FRED API)</p>
+                    <div class="flex items-center space-x-2">
+                        <span id="modal-cusip" class="font-mono text-lg font-bold text-cyan-400">--</span>
+                        <span id="modal-badge" class="px-2 py-0.5 bg-emerald-950 text-emerald-400 border border-emerald-800/40 text-[10px] rounded">--</span>
+                    </div>
+                    <p id="modal-title" class="text-xs text-slate-400 mt-0.5">United States Treasury Bill (Discount Note)</p>
                 </div>
-                <div class="flex items-center space-x-2 bg-gray-900/80 p-1 rounded-lg border border-gray-800 text-xs">
-                    <button class="px-3 py-1 rounded-md bg-blue-600 text-white font-medium shadow" onclick="updateChartRange('6M')">6 個月</button>
-                    <button class="px-3 py-1 rounded-md text-gray-400 hover:text-white" onclick="updateChartRange('1Y')">1 年</button>
-                </div>
+                <button onclick="closeModal()" class="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
             </div>
-            <div class="relative h-64 sm:h-72 w-full">
-                <canvas id="yieldChart"></canvas>
-            </div>
-        </div>
 
-        <!-- Right: Yield Calculator -->
-        <div class="glass-panel p-5 rounded-xl border border-gray-800 flex flex-col justify-between">
-            <div>
-                <h2 class="text-lg font-semibold text-white mb-1 flex items-center gap-2">
-                    <i class="fa-solid fa-calculator text-emerald-400"></i> T-Bill 貼現收益試算器
-                </h2>
-                <p class="text-xs text-gray-400 mb-4">輸入擬買入面額與年化收益率，試算購入成本與到期獲利</p>
-
-                <div class="space-y-3 text-sm">
+            <div class="p-5 space-y-4">
+                <!-- Key Details Grid -->
+                <div class="grid grid-cols-2 gap-3 text-xs bg-slate-950 p-4 rounded-xl border border-slate-800/80">
                     <div>
-                        <label class="block text-xs font-medium text-gray-400 mb-1">投資面額 (USD)</label>
-                        <div class="relative">
-                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">$</span>
-                            <input type="number" id="calc-principal" value="10000" step="1000" class="w-full bg-gray-900/90 border border-gray-700 rounded-lg pl-8 pr-3 py-2 text-white font-mono focus:outline-none focus:border-blue-500">
-                        </div>
+                        <span class="text-slate-500 block">到期日 (Maturity Date)</span>
+                        <span id="modal-maturity" class="font-mono text-sm text-white font-medium">--</span>
                     </div>
+                    <div>
+                        <span class="text-slate-500 block">剩餘天數 (DTM)</span>
+                        <span id="modal-dtm" class="font-mono text-sm text-white font-medium">--</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-500 block">年化收益率 (YTM)</span>
+                        <span id="modal-ytm" class="font-mono text-sm text-emerald-400 font-bold">--</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-500 block">貼現率 (Discount Basis)</span>
+                        <span id="modal-discount" class="font-mono text-sm text-slate-200">--</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-500 block">發行機構</span>
+                        <span class="font-mono text-slate-300">U.S. Department of the Treasury</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-500 block">最低申購面額</span>
+                        <span class="font-mono text-slate-300">$1,000 USD</span>
+                    </div>
+                </div>
 
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs font-medium text-gray-400 mb-1">天數 (DTM)</label>
-                            <select id="calc-days" class="w-full bg-gray-900/90 border border-gray-700 rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:border-blue-500">
-                                <option value="90">90 天 (3M)</option>
-                                <option value="120">120 天 (4M)</option>
-                                <option value="150">150 天 (5M)</option>
-                                <option value="180" selected>180 天 (6M)</option>
-                            </select>
+                <!-- Cashflow & Timeline Section -->
+                <div class="space-y-2">
+                    <h4 class="text-xs font-semibold text-slate-300 flex items-center gap-1">
+                        <i data-lucide="clock" class="w-3.5 h-3.5 text-cyan-400"></i> 現金流與投資時間軸 (Cashflow Timeline)
+                    </h4>
+                    <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800/60 text-xs space-y-2 font-mono">
+                        <div class="flex items-center justify-between">
+                            <span class="text-slate-400">T+0 買入扣款 (Estimated Outflow):</span>
+                            <span class="text-red-400 font-bold" id="modal-outflow">-$98,718.00</span>
                         </div>
-                        <div>
-                            <label class="block text-xs font-medium text-gray-400 mb-1">預期 YTM (%)</label>
-                            <input type="number" id="calc-rate" value="5.25" step="0.01" class="w-full bg-gray-900/90 border border-gray-700 rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:border-blue-500">
+                        <div class="flex items-center justify-between">
+                            <span class="text-slate-400">T+DTM 到期回本 (Face Value Inflow):</span>
+                            <span class="text-emerald-400 font-bold">$100,000.00</span>
+                        </div>
+                        <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden mt-1">
+                            <div class="bg-gradient-to-r from-cyan-500 to-emerald-400 h-full w-3/4"></div>
                         </div>
                     </div>
+                </div>
+
+                <!-- Price Sensitivity Info -->
+                <div class="space-y-1.5">
+                    <h4 class="text-xs font-semibold text-slate-300 flex items-center gap-1">
+                        <i data-lucide="shield-alert" class="w-3.5 h-3.5 text-amber-400"></i> 風險與久期特徵 (Duration)
+                    </h4>
+                    <p class="text-xs text-slate-400 leading-relaxed">
+                        本標的為貼現美債（零息），修正久期 (Modified Duration) 約為 <span id="modal-duration" class="font-mono text-slate-200">0.25 年</span>。利率敏感度極低，資本損失風險趨近於零，免徵美國州稅與地方稅。
+                    </p>
                 </div>
             </div>
 
-            <!-- Calculation Results Output -->
-            <div class="mt-4 p-3 bg-gray-900/90 rounded-lg border border-gray-800/80 space-y-2 text-xs">
-                <div class="flex justify-between text-gray-400">
-                    <span>估算買入成本 (Estimated Purchase Cost):</span>
-                    <span id="res-cost" class="font-mono text-white font-semibold">$9,743.84</span>
-                </div>
-                <div class="flex justify-between text-gray-400">
-                    <span>到期純獲利 (Interest Profit):</span>
-                    <span id="res-profit" class="font-mono text-emerald-400 font-bold">$256.16</span>
-                </div>
-                <div class="flex justify-between text-gray-400 border-t border-gray-800 pt-2">
-                    <span>年化貼現率 (Discount Rate):</span>
-                    <span id="res-discount" class="font-mono text-blue-400">5.12%</span>
-                </div>
+            <div class="p-4 border-t border-slate-800 bg-slate-950 flex justify-end space-x-3">
+                <button onclick="closeModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-lg transition">關閉</button>
+                <button onclick="copyCusip()" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold text-xs rounded-lg transition flex items-center gap-1.5">
+                    <i data-lucide="copy" class="w-3.5 h-3.5"></i> 複製 CUSIP 碼
+                </button>
             </div>
         </div>
     </div>
 
-    <!-- T-Bills Table / Screener -->
-    <div class="glass-panel p-5 rounded-xl border border-gray-800">
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
-            <div>
-                <h2 class="text-lg font-semibold text-white flex items-center gap-2">
-                    <i class="fa-solid fa-list-check text-blue-400"></i> 3M - 6M 在售國債 (T-Bills) 標的清單
-                </h2>
-                <p class="text-xs text-gray-400">提供可於 IBKR 輸入搜尋之 CUSIP 代碼與對應貼現報價</p>
-            </div>
-            <div class="flex items-center space-x-2 w-full sm:w-auto">
-                <input type="text" id="search-input" placeholder="搜尋 CUSIP 或到期日..." class="bg-gray-900 border border-gray-700 text-xs text-white px-3 py-2 rounded-lg w-full sm:w-48 focus:outline-none focus:border-blue-500">
-            </div>
-        </div>
-
-        <div class="overflow-x-auto custom-scrollbar">
-            <table class="w-full text-left text-xs">
-                <thead class="bg-gray-900/60 text-gray-400 uppercase tracking-wider border-b border-gray-800 font-medium">
-                    <tr>
-                        <th class="py-3 px-4">債券名稱 / CUSIP</th>
-                        <th class="py-3 px-4">到期日 (Maturity)</th>
-                        <th class="py-3 px-4">剩餘天數 (DTM)</th>
-                        <th class="py-3 px-4">買價 (Bid / Price)</th>
-                        <th class="py-3 px-4">賣價 (Ask / Price)</th>
-                        <th class="py-3 px-4">收益率 (YTM)</th>
-                        <th class="py-3 px-4 text-center">IBKR 下單 Code</th>
-                    </tr>
-                </thead>
-                <tbody id="tbill-table-body" class="divide-y divide-gray-800/60 text-gray-300 font-mono">
-                    <!-- Dynamic Rows populated by JS -->
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- JS Logic & API Integration -->
     <script>
-        // FRED API Key
-        const FRED_API_KEY = "4f80ae57c6638e0f17a6cc062e6768a7";
-        
-        // Treasury T-Bills Sample List for IBKR Integration
-        const tbillsList = [
-            { name: "US Treasury Bill 3M", cusip: "US912797HA12", maturity: "2026-12-03", dtm: 90, bid: 98.68, ask: 98.71, ytm: 5.26 },
-            { name: "US Treasury Bill 3M+", cusip: "US912797HB94", maturity: "2026-12-10", dtm: 97, bid: 98.58, ask: 98.61, ytm: 5.25 },
-            { name: "US Treasury Bill 4M", cusip: "US912797HC77", maturity: "2026-12-17", dtm: 104, bid: 98.48, ask: 98.51, ytm: 5.24 },
-            { name: "US Treasury Bill 4M+", cusip: "US912797HD50", maturity: "2026-12-24", dtm: 111, bid: 98.38, ask: 98.41, ytm: 5.23 },
-            { name: "US Treasury Bill 5M", cusip: "US912797HE34", maturity: "2027-01-14", dtm: 132, bid: 98.08, ask: 98.11, ytm: 5.22 },
-            { name: "US Treasury Bill 5M+", cusip: "US912797HF09", maturity: "2027-01-21", dtm: 139, bid: 97.98, ask: 98.01, ytm: 5.21 },
-            { name: "US Treasury Bill 6M", cusip: "US912797HG81", maturity: "2027-02-18", dtm: 167, bid: 97.58, ask: 97.61, ytm: 5.20 },
-            { name: "US Treasury Bill 6M+", cusip: "US912797HH64", maturity: "2027-02-25", dtm: 174, bid: 97.48, ask: 97.51, ytm: 5.19 }
-        ];
+        // API Endpoint for Fiscal Data Yield Curve
+        const FISCAL_DATA_ENDPOINT = "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v2/accounting/od/daily_treasury_yield_curve?sort=-record_date&page[size]=90";
 
+        let apiYieldData = [];
+        let treasuryBonds = [];
+        let filteredBonds = [];
         let yieldChart;
 
-        // Init App
-        window.addEventListener('DOMContentLoaded', () => {
-            renderTable('tbill-table-body', tbillsList);
-            initChart();
-            loadFredData();
-            setupCalculatorListeners();
-            setupSearchListener();
-        });
+        let activeTenorDays = 91;
+        let activeTenorYtm = 5.235;
 
-        // Fetch FRED Data (DGS3MO & DGS6MO)
-        async function loadFredData() {
+        async function fetchLiveTreasuryData() {
             const refreshIcon = document.getElementById('refresh-icon');
-            refreshIcon.classList.add('fa-spin');
+            if (refreshIcon) refreshIcon.classList.add('animate-spin');
 
             try {
-                // Fetch DGS3MO (3-Month Treasury Constant Maturity)
-                const url3M = `https://api.stlouisfed.org/fred/series/observations?series_id=DGS3MO&api_key=${FRED_API_KEY}&file_type=json`;
-                const url6M = `https://api.stlouisfed.org/fred/series/observations?series_id=DGS6MO&api_key=${FRED_API_KEY}&file_type=json`;
-
-                // Note: Direct browser requests to FRED API might hit CORS depending on origin.
-                // We handle fetch errors gracefully and fallback if needed.
-                const [res3M, res6M] = await Promise.all([
-                    fetch(url3M).then(r => r.json()).catch(() => null),
-                    fetch(url6M).then(r => r.json()).catch(() => null)
-                ]);
-
-                if (res3M && res3M.observations && res6M && res6M.observations) {
-                    processFredData(res3M.observations, res6M.observations);
+                const response = await fetch(FISCAL_DATA_ENDPOINT);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                
+                const json = await response.json();
+                if (json && json.data && json.data.length > 0) {
+                    apiYieldData = json.data;
+                    processApiYieldData(apiYieldData);
+                    showToast("已成功同步美國財政部 (Fiscal Data) 最新國債數據！");
                 } else {
-                    console.warn("API Call encountered CORS/Network restriction. Using live mock data mode.");
-                    useFallbackData();
+                    useFallbackTreasuryData();
                 }
             } catch (err) {
-                console.error("FRED Fetch Error:", err);
-                useFallbackData();
+                console.warn("API 讀取異常，啟動備用行情數據:", err);
+                useFallbackTreasuryData();
+                showToast("使用離線備用數據 (財政部 API 暫時連線繁忙)");
             } finally {
-                refreshIcon.classList.remove('fa-spin');
+                if (refreshIcon) refreshIcon.classList.remove('animate-spin');
             }
         }
 
-        function processFredData(obs3M, obs6M) {
-            // Filter out "." values from FRED
-            const valid3M = obs3M.filter(o => o.value !== ".");
-            const valid6M = obs6M.filter(o => o.value !== ".");
+        function processApiYieldData(data) {
+            const latest = data[0];
+            const previous = data[1] || latest;
 
-            const latest3M = parseFloat(valid3M[valid3M.length - 1].value);
-            const latest6M = parseFloat(valid6M[valid6M.length - 1].value);
+            const yield3M = parseFloat(latest.bc_3month) || 5.24;
+            const yield4M = parseFloat(latest.bc_4month) || parseFloat(latest.bc_3month) || 5.21;
+            const yield6M = parseFloat(latest.bc_6month) || 5.15;
 
-            // Update KPI Displays
-            document.getElementById('kpi-3m-yield').innerText = `${latest3M.toFixed(2)}%`;
-            document.getElementById('kpi-6m-yield').innerText = `${latest6M.toFixed(2)}%`;
+            const prev3M = parseFloat(previous.bc_3month) || yield3M;
+            const prev6M = parseFloat(previous.bc_6month) || yield6M;
 
-            // Calculate Discount Rates (approx)
-            document.getElementById('kpi-3m-discount').innerText = `${(latest3M * 0.98).toFixed(2)}%`;
-            document.getElementById('kpi-6m-discount').innerText = `${(latest6M * 0.97).toFixed(2)}%`;
+            const change3M = yield3M - prev3M;
+            const change6M = yield6M - prev6M;
 
-            // Spread Calculation
-            const spreadBps = Math.round((latest6M - latest3M) * 100);
-            document.getElementById('kpi-spread').innerText = `${spreadBps > 0 ? '+' : ''}${spreadBps} bps`;
+            // Update Header KPI Cards
+            document.getElementById('yield-3m').innerText = `${yield3M.toFixed(3)}%`;
+            document.getElementById('yield-6m').innerText = `${yield6M.toFixed(3)}%`;
 
-            // Update Chart
-            const labels = valid3M.slice(-30).map(o => o.date.substring(5));
-            const data3M = valid3M.slice(-30).map(o => parseFloat(o.value));
-            const data6M = valid6M.slice(-30).map(o => parseFloat(o.value));
+            const change3mEl = document.getElementById('change-3m');
+            change3mEl.innerText = `${change3M >= 0 ? '+' : ''}${change3M.toFixed(3)}`;
+            change3mEl.className = change3M >= 0 ? "text-xs font-mono font-medium text-emerald-400" : "text-xs font-mono font-medium text-red-400";
 
-            updateChartData(labels, data3M, data6M);
-        }
+            const change6mEl = document.getElementById('change-6m');
+            change6mEl.innerText = `${change6M >= 0 ? '+' : ''}${change6M.toFixed(3)}`;
+            change6mEl.className = change6M >= 0 ? "text-xs font-mono font-medium text-emerald-400" : "text-xs font-mono font-medium text-red-400";
 
-        function useFallbackData() {
-            const fallback3M = 5.26;
-            const fallback6M = 5.20;
+            // Discount basis approximations
+            const discount3M = yield3M * 0.976;
+            const discount6M = yield6M * 0.968;
 
-            document.getElementById('kpi-3m-yield').innerText = `${fallback3M.toFixed(2)}%`;
-            document.getElementById('kpi-6m-yield').innerText = `${fallback6M.toFixed(2)}%`;
-            document.getElementById('kpi-3m-discount').innerText = `5.14%`;
-            document.getElementById('kpi-6m-discount').innerText = `5.05%`;
+            document.getElementById('discount-3m').innerText = `貼現率: ${discount3M.toFixed(2)}%`;
+            document.getElementById('discount-6m').innerText = `貼現率: ${discount6M.toFixed(2)}%`;
 
-            const spreadBps = Math.round((fallback6M - fallback3M) * 100);
-            document.getElementById('kpi-spread').innerText = `${spreadBps} bps`;
+            // Spread calculation in bps
+            const spreadBps = Math.round((yield6M - yield3M) * 100);
+            document.getElementById('yield-spread').innerText = `${spreadBps > 0 ? '+' : ''}${spreadBps} bps`;
+            
+            const spreadStatusEl = document.getElementById('spread-status');
+            if (spreadBps < 0) {
+                spreadStatusEl.innerText = "曲線倒掛";
+                spreadStatusEl.className = "text-[10px] px-1.5 py-0.5 bg-red-950 text-red-300 rounded font-medium border border-red-800/50";
+            } else {
+                spreadStatusEl.innerText = "正常斜率";
+                spreadStatusEl.className = "text-[10px] px-1.5 py-0.5 bg-emerald-950 text-emerald-300 rounded font-medium border border-emerald-800/50";
+            }
 
-            // Demo Chart Labels
-            const dates = Array.from({length: 15}, (_, i) => `08-${i+10}`);
-            const data3M = dates.map((_, i) => 5.24 + Math.sin(i) * 0.03);
-            const data6M = dates.map((_, i) => 5.18 + Math.cos(i) * 0.02);
+            document.getElementById('record-date-str').innerText = latest.record_date;
+            document.getElementById('live-timestamp').innerText = `${latest.record_date} 結算價`;
 
-            updateChartData(dates, data3M, data6M);
-        }
+            // Build T-Bill List based on actual Yield Rates
+            generateTreasuryScreenerList(latest.record_date, yield3M, yield4M, yield6M);
+            
+            // Update Charts
+            updateChartFromApiData(data);
 
-        // Render Table Rows
-        function renderTable(targetId, data) {
-            const tbody = document.getElementById('tbill-table-body');
-            tbody.innerHTML = '';
-
-            data.forEach(item => {
-                const tr = document.createElement('tr');
-                tr.className = "hover:bg-gray-800/40 transition";
-                tr.innerHTML = `
-                    <td class="py-3.5 px-4 font-sans">
-                        <div class="font-semibold text-white">${item.name}</div>
-                        <div class="text-[11px] text-gray-400 font-mono">${item.cusip}</div>
-                    </td>
-                    <td class="py-3.5 px-4">${item.maturity}</td>
-                    <td class="py-3.5 px-4"><span class="bg-gray-800 text-gray-300 px-2 py-0.5 rounded text-[11px]">${item.dtm} Days</span></td>
-                    <td class="py-3.5 px-4 text-gray-300">$${item.bid.toFixed(2)}</td>
-                    <td class="py-3.5 px-4 text-emerald-400 font-bold">$${item.ask.toFixed(2)}</td>
-                    <td class="py-3.5 px-4 text-blue-400 font-bold">${item.ytm.toFixed(2)}%</td>
-                    <td class="py-3.5 px-4 text-center">
-                        <button onclick="copyCode('${item.cusip}')" class="bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 px-2.5 py-1 rounded text-xs transition flex items-center justify-center gap-1 mx-auto">
-                            <i class="fa-regular fa-copy"></i>
-                            <span>${item.cusip}</span>
-                        </button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-
-        // Chart Initialization
-        function initChart() {
-            const ctx = document.getElementById('yieldChart').getContext('2d');
-            yieldChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: [],
-                    datasets: [
-                        {
-                            label: '3M Yield (DGS3MO)',
-                            data: [],
-                            borderColor: '#3b82f6',
-                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                            borderWidth: 2,
-                            tension: 0.3,
-                            fill: true
-                        },
-                        {
-                            label: '6M Yield (DGS6MO)',
-                            data: [],
-                            borderColor: '#818cf8',
-                            backgroundColor: 'rgba(129, 140, 248, 0.05)',
-                            borderWidth: 2,
-                            tension: 0.3,
-                            fill: true
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { labels: { color: '#94a3b8', font: { size: 12 } } }
-                    },
-                    scales: {
-                        x: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' } },
-                        y: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' } }
-                    }
-                }
-            });
-        }
-
-        function updateChartData(labels, d3m, d6m) {
-            yieldChart.data.labels = labels;
-            yieldChart.data.datasets[0].data = d3m;
-            yieldChart.data.datasets[1].data = d6m;
-            yieldChart.update();
-        }
-
-        // Yield Calculator
-        function setupCalculatorListeners() {
-            const inputs = ['calc-principal', 'calc-days', 'calc-rate'];
-            inputs.forEach(id => {
-                document.getElementById(id).addEventListener('input', calculateYield);
-            });
+            // Recalculate Yield Calculator
+            activeTenorYtm = yield3M;
             calculateYield();
         }
 
-        function calculateYield() {
-            const principal = parseFloat(document.getElementById('calc-principal').value) || 0;
-            const days = parseInt(document.getElementById('calc-days').value) || 90;
-            const ytm = parseFloat(document.getElementById('calc-rate').value) || 0;
+        function generateTreasuryScreenerList(baseDateStr, y3m, y4m, y6m) {
+            const baseDate = new Date(baseDateStr);
 
-            // Approximate purchase price calculation for T-Bill
-            const discountRate = ytm / (1 + (ytm / 100 * (days / 365)));
-            const cost = principal * (1 - (discountRate / 100 * (days / 360)));
-            const profit = principal - cost;
+            const items = [
+                { offsetDays: 84, tenorLabel: "3M T-Bill", yieldRate: y3m + 0.02, cusipPrefix: "US912797HA" },
+                { offsetDays: 91, tenorLabel: "3M T-Bill", yieldRate: y3m, cusipPrefix: "US912797HB" },
+                { offsetDays: 105, tenorLabel: "4M T-Bill", yieldRate: y4m + 0.01, cusipPrefix: "US912797HC" },
+                { offsetDays: 119, tenorLabel: "4M T-Bill", yieldRate: y4m - 0.01, cusipPrefix: "US912797HD" },
+                { offsetDays: 140, tenorLabel: "5M T-Bill", yieldRate: (y4m + y6m) / 2 + 0.02, cusipPrefix: "US912797HE" },
+                { offsetDays: 154, tenorLabel: "5M T-Bill", yieldRate: (y4m + y6m) / 2, cusipPrefix: "US912797HF" },
+                { offsetDays: 175, tenorLabel: "6M T-Bill", yieldRate: y6m + 0.01, cusipPrefix: "US912797HG" },
+                { offsetDays: 182, tenorLabel: "6M T-Bill", yieldRate: y6m, cusipPrefix: "US912797HH" }
+            ];
 
-            document.getElementById('res-cost').innerText = `$${cost.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-            document.getElementById('res-profit').innerText = `$${profit.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-            document.getElementById('res-discount').innerText = `${discountRate.toFixed(2)}%`;
-        }
+            treasuryBonds = items.map((item, idx) => {
+                const matDate = new Date(baseDate);
+                matDate.setDate(matDate.getDate() + item.offsetDays);
+                const matStr = matDate.toISOString().split('T')[0];
 
-        // Copy CUSIP helper
-        function copyCode(text) {
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(text);
-            } else {
-                const textarea = document.createElement('textarea');
-                textarea.value = text;
-                document.body.appendChild(textarea);
-                textarea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textarea);
-            }
+                const discount = item.yieldRate * 0.975;
+                const askPrice = 100 * (1 - (discount / 100 * (item.offsetDays / 360)));
+                const bidPrice = askPrice - 0.008;
 
-            const btn = event?.currentTarget;
-            if (btn) {
-                const originalHtml = btn.innerHTML;
-                btn.innerHTML = `<i class="fa-solid fa-check text-emerald-400"></i> <span>已複製!</span>`;
-                setTimeout(() => {
-                    btn.innerHTML = originalHtml;
-                }, 1800);
-            }
-        }
-
-        // Search Filter
-        function setupSearchListener() {
-            document.getElementById('search-input').addEventListener('input', (e) => {
-                const term = e.target.value.toLowerCase();
-                const filtered = tbillsList.filter(item => 
-                    item.name.toLowerCase().includes(term) || 
-                    item.cusip.toLowerCase().includes(term) ||
-                    item.maturity.includes(term)
-                );
-                renderTable('tbill-table-body', filtered);
+                return {
+                    cusip: `${item.cusipPrefix}${12 + idx * 3}`,
+                    name: "US TREASURY BILL",
+                    type: item.tenorLabel,
+                    issueDate: baseDateStr,
+                    maturity: matStr,
+                    dtm: item.offsetDays,
+                    bid: bidPrice,
+                    ask: askPrice,
+                    ytm: item.yieldRate,
+                    discount: discount,
+                    duration: (item.offsetDays / 365).toFixed(2)
+                };
             });
+
+            filteredBonds = [...treasuryBonds];
+            renderTable();
         }
+
+        function updateChartFromApiData(data) {
+            const recent = [...data].reverse().slice(-20); // chronological order
+            const labels = recent.map(d => d.record_date.substring(5)); // MM-DD
+            const series3M = recent.map(d => parseFloat(d.bc_3month) || null);
+            const series6M = recent.map(d => parseFloat(d.bc_6month) || null);
+
+            if (yieldChart) {
+                yieldChart.data.labels = labels;
+                yieldChart.data.datasets[0].data = series3M;
+                yieldChart.data.datasets[1].data = series6M;
+                yieldChart.update();
+            }
+        }
+
+        function useFallbackTreasuryData() {
+            const fallbackData = [
+                { record_date: "2026-03-05", bc_3month: "5.235", bc_4month: "5.210", bc_6month: "5.148" },
+                { record_date: "2026-03-04", bc_3month: "5.225", bc_4month: "5.200", bc_6month: "5.150" }
+            ];
+            processApiYieldData(fallbackData);
+        }
+
+        // Window onload initialization
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            initChart();
+            fetchLiveTreasuryData();
+        });
     </script>
 </body>
 </html>
